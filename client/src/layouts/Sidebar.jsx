@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
+  Radar,
   MessageSquare,
   Kanban,
   CheckSquare,
@@ -28,6 +29,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 const NAV_MAIN = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
   { label: 'Leads',     icon: Users,           to: '/leads' },
+  { label: 'Lead 360',  icon: Radar,           to: '/lead360' },
   { label: 'Inbox',     icon: MessageSquare,   to: '/inbox' },
   { label: 'Pipeline',  icon: Kanban,          to: '/pipeline' },
   { label: 'Tasks',     icon: CheckSquare,     to: '/tasks' },

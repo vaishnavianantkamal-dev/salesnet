@@ -3,6 +3,7 @@ export const ROUTES = {
   LOGIN: '/login',
   DASHBOARD: '/dashboard',
   LEADS: '/leads',
+  LEAD360: '/lead360',
   INBOX: '/inbox',
   PIPELINE: '/pipeline',
   TASKS: '/tasks',

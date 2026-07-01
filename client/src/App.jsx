@@ -14,6 +14,7 @@ const RolesPage = lazy(() => import('./features/roles/pages/RolesPage'))
 const SettingsPage = lazy(() => import('./features/settings/pages/SettingsPage'))
 const LeadsPage = lazy(() => import('./features/leads/pages/LeadsPage'))
 const LeadDetailPage = lazy(() => import('./features/leads/pages/LeadDetailPage'))
+const Lead360Page = lazy(() => import('./features/lead360/pages/Lead360Page'))
 const InboxPage = lazy(() => import('./features/inbox/pages/InboxPage'))
 const PipelinePage = lazy(() => import('./features/pipeline/pages/PipelinePage'))
 const TasksPage = lazy(() => import('./features/tasks/pages/TasksPage'))
@@ -53,6 +54,8 @@ export default function App() {
 
           <Route path="/leads" element={<ProtectedRoute requiredPermission="leads:read"><LeadsPage /></ProtectedRoute>} />
           <Route path="/leads/:id" element={<ProtectedRoute requiredPermission="leads:read"><LeadDetailPage /></ProtectedRoute>} />
+
+          <Route path="/lead360" element={<ProtectedRoute requiredPermission="leads:read"><Lead360Page /></ProtectedRoute>} />
 
           <Route path="/inbox" element={<ProtectedRoute requiredPermission="conversations:read"><InboxPage /></ProtectedRoute>} />
           <Route path="/pipeline" element={<ProtectedRoute requiredPermission="leads:read"><PipelinePage /></ProtectedRoute>} />
