@@ -261,12 +261,79 @@ class LeadController {
         description,
       };
 
-      const result = await leadService.createPublicLead(mappedData);
+      // 1. SAVE TO MONGODB FIRST
+      const Lead = require('../../models/Lead.model');
       
-      return res.status(201).json({ ok: true, id: result.lead._id });
+      // Auto-assign via round-robin if possible
+      let assignedTo = null;
+      let assignedAt = null;
+
+      // Let's do the manual save to ensure absolute decoupling
+      let lead = new Lead({
+        ...mappedData,
+        createdBy: null,
+      });
+
+      // Try to auto-assign safely
+      try {
+        const Role = require('../../models/Role.model');
+        const User = require('../../models/User.model');
+        const leadRepository = require('./lead.repository');
+        
+        const salesExecRole = await Role.findOne({ key: 'sales_executive' }).lean();
+        if (salesExecRole) {
+          const executives = await User.find({ role: salesExecRole._id, isActive: true }).select('_id').lean();
+          if (executives.length > 0) {
+            const counts = await Promise.all(executives.map(u => leadRepository.countByFilter({ assignedTo: u._id })));
+            let minCount = Infinity;
+            let chosenId = null;
+            for (let i = 0; i < executives.length; i++) {
+              if (counts[i] < minCount) { minCount = counts[i]; chosenId = executives[i]._id; }
+            }
+            if (chosenId) {
+              lead.assignedTo = chosenId;
+              lead.assignedAt = new Date();
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Auto-assign failed (non-fatal):', err.message);
+      }
+
+      await lead.save();
+
+      // 2. RETURN RESPONSE IMMEDIATELY
+      res.status(201).json({ ok: true, id: lead._id });
+
+      // 3. BACKGROUND TASKS (Fire and forget, strictly safe)
+      setImmediate(async () => {
+        try {
+          // Scoring event
+          const scoringService = require('../../services/scoring.service');
+          const { SCORING_EVENTS } = require('../../utils/constants');
+          await scoringService.applyEvent(lead._id, SCORING_EVENTS.LEAD_CREATED, null);
+        } catch (bgErr) {
+          console.warn('Background scoring skipped - error or redis unavailable:', bgErr.message);
+        }
+        
+        try {
+          // Add to webhook queue if needed
+          const { webhookQueue } = require('../../jobs/queues');
+          if (webhookQueue) {
+            await webhookQueue.add('process_lead', { leadId: lead._id });
+          } else {
+            console.warn('queue skipped - redis unavailable');
+          }
+        } catch (qErr) {
+          console.warn('Queue addition skipped:', qErr.message);
+        }
+      });
+
     } catch (err) {
-      console.error('Ingest error:', err);
-      return res.status(500).json({ ok: false, error: 'Internal Server Error' });
+      console.error('Ingest error:', err.stack || err);
+      if (!res.headersSent) {
+        return res.status(500).json({ ok: false, error: 'Internal Server Error' });
+      }
     }
   }
 }
