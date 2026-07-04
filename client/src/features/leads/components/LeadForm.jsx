@@ -353,20 +353,68 @@ export default function LeadForm({ lead, onSubmit, isLoading, error }) {
               </p>
             )}
           </div>
+          
+          <div className="space-y-1.5">
+            <Label htmlFor="productQuantity">Quantity</Label>
+            <Input
+              id="productQuantity"
+              type="number"
+              min={0}
+              placeholder="e.g. 50"
+              {...register('productQuantity')}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="usage">Usage / Purpose</Label>
+            <Input
+              id="usage"
+              placeholder="e.g. Balcony"
+              {...register('usage')}
+            />
+          </div>
         </div>
+      </div>
+
+      {/* Requirement & Description */}
+      <div className="space-y-1.5">
+        <Label htmlFor="description">Requirement / Description</Label>
+        <textarea
+          id="description"
+          rows={2}
+          placeholder="Detailed requirements from the customer..."
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+          {...register('description')}
+        />
       </div>
 
       {/* Notes */}
       <div className="space-y-1.5">
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="notes">Internal Notes</Label>
         <textarea
           id="notes"
-          rows={3}
-          placeholder="Add any additional notes about this lead..."
+          rows={2}
+          placeholder="Add any internal notes..."
           className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
           {...register('notes')}
         />
       </div>
+
+      {/* Attached Images */}
+      {lead?.images && lead.images.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Attached Images
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {lead.images.map((imgUrl, i) => (
+              <a key={i} href={imgUrl} target="_blank" rel="noreferrer" className="relative block h-24 w-24 overflow-hidden rounded-md border border-border shadow-sm hover:opacity-80 transition-opacity">
+                <img src={imgUrl} alt="Attached" className="object-cover w-full h-full" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="submit" disabled={isLoading}>

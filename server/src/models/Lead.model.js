@@ -62,6 +62,10 @@ const leadSchema = new mongoose.Schema(
     },
     usage: { type: String, trim: true },
     description: { type: String, trim: true },
+    images: {
+      type: [String],
+      default: [],
+    },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

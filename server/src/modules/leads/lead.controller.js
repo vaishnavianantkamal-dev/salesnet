@@ -210,7 +210,7 @@ class LeadController {
         return res.status(401).json({ ok: false, error: 'Unauthorized' });
       }
 
-      const { name, company, phone, email, city, product, quantity, usage, description, source } = req.body;
+      const { name, company, phone, email, city, product, quantity, usage, description, source, images } = req.body;
 
       if (!phone) {
         return res.status(400).json({ ok: false, error: 'Phone is required' });
@@ -284,6 +284,7 @@ class LeadController {
         },
         usage,
         description,
+        images: Array.isArray(images) ? images : (typeof images === 'string' ? images.split(',').map(s => s.trim()).filter(Boolean) : undefined),
       };
 
       // 1. SAVE TO MONGODB FIRST
