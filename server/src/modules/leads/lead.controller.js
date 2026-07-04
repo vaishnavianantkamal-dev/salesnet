@@ -197,6 +197,62 @@ class LeadController {
       next(err);
     }
   }
+
+  /**
+   * POST /leads/ingest
+   * Ingest endpoint for n8n integration. Bypasses JWT auth.
+   * Expects x-webhook-secret header.
+   */
+  async ingest(req, res, next) {
+    try {
+      const secret = req.headers['x-webhook-secret'];
+      if (!secret || secret !== process.env.LEAD_WEBHOOK_SECRET) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      }
+
+      const { name, company, phone, email, city, product, quantity, usage, description, source } = req.body;
+
+      if (!phone) {
+        return res.status(400).json({ ok: false, error: 'Phone is required' });
+      }
+
+      // Check duplicate by phone AND product
+      const existing = await require('../../models/Lead.model').findOne({
+        'contact.phone': phone,
+        'product.name': product || { $exists: false }
+      }).lean();
+
+      if (existing) {
+        return res.status(200).json({ ok: true, duplicate: true, id: existing._id });
+      }
+
+      // Map flat payload to nested Lead schema
+      const mappedData = {
+        source: source || 'indiamart',
+        stage: require('../../utils/constants').LEAD_STAGES.NEW,
+        contact: {
+          name,
+          company,
+          phone,
+          email,
+          city,
+        },
+        product: {
+          name: product,
+          quantity: quantity ? Number(quantity) : undefined,
+        },
+        usage,
+        description,
+      };
+
+      const result = await leadService.createPublicLead(mappedData);
+      
+      return res.status(201).json({ ok: true, id: result.lead._id });
+    } catch (err) {
+      console.error('Ingest error:', err);
+      return res.status(500).json({ ok: false, error: 'Internal Server Error' });
+    }
+  }
 }
 
 module.exports = new LeadController();

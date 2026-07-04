@@ -60,6 +60,8 @@ const leadSchema = new mongoose.Schema(
       quantity: { type: Number, min: 0 },
       estimatedValue: { type: Number, min: 0 },
     },
+    usage: { type: String, trim: true },
+    description: { type: String, trim: true },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

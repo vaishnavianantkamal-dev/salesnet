@@ -26,6 +26,12 @@ router.post(
   leadController.createPublic.bind(leadController)
 );
 
+// POST /api/leads/ingest
+router.post(
+  '/ingest',
+  leadController.ingest.bind(leadController)
+);
+
 // ─── Authenticated routes ────────────────────────────────────────────────────
 
 // GET /api/leads

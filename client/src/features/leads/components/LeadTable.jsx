@@ -184,9 +184,14 @@ export default function LeadTable({
                       className="cursor-pointer"
                       onClick={() => dispatch(openLeadModal(lead._id))}
                     >
-                      <p className="font-medium text-sm text-foreground">
-                        {lead.contact?.name || '—'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm text-foreground">
+                          {lead.contact?.name || '—'}
+                        </p>
+                        {stageKey === 'new' && (
+                          <Badge variant="default" className="h-5 px-1.5 text-[10px] font-bold uppercase bg-blue-500 text-white hover:bg-blue-600">New</Badge>
+                        )}
+                      </div>
                       {lead.contact?.company && (
                         <p className="text-xs text-muted-foreground">
                           {lead.contact.company}
