@@ -216,24 +216,27 @@ class LeadController {
         return res.status(400).json({ ok: false, error: 'Phone is required' });
       }
 
-      // Check duplicate by phone AND product
+      // Check duplicate by phone AND product (robust matching)
       let existing = null;
       try {
         const LeadModel = require('../../models/Lead.model');
-        const query = { 'contact.phone': phone };
+        const query = { 'contact.phone': new RegExp(`^${phone.trim()}$`, 'i') };
+        
         if (product) {
-          query['product.name'] = product;
+          query['product.name'] = new RegExp(`^${product.trim()}$`, 'i');
         } else {
-          // If no product is provided, check if a lead exists with this phone and no product
-          query['product.name'] = { $exists: false };
+          // If no product provided, check for either missing product OR empty product
+          query['product.name'] = { $in: [null, '', { $exists: false }] };
         }
+        
         existing = await LeadModel.findOne(query).lean();
       } catch (dupErr) {
-        console.warn('Duplicate check failed, proceeding to create new lead:', dupErr.message);
+        console.warn('Duplicate check query failed (non-fatal):', dupErr.message);
       }
 
+      // If we found a duplicate, return 200 immediately
       if (existing) {
-        console.info(`Duplicate lead skipped (phone: ${phone}, product: ${product || 'none'}):`, existing._id);
+        console.info(`Duplicate lead skipped (phone: ${phone}): ${existing._id}`);
         return res.status(200).json({ ok: true, duplicate: true, id: existing._id });
       }
 
@@ -249,7 +252,6 @@ class LeadController {
           normalizedSource = 'facebook';
         }
       } else {
-        // Fallback if n8n doesn't send a source at all
         normalizedSource = 'other';
       }
 
@@ -276,10 +278,6 @@ class LeadController {
       const Lead = require('../../models/Lead.model');
       
       // Auto-assign via round-robin if possible
-      let assignedTo = null;
-      let assignedAt = null;
-
-      // Let's do the manual save to ensure absolute decoupling
       let lead = new Lead({
         ...mappedData,
         createdBy: null,
@@ -311,7 +309,18 @@ class LeadController {
         console.warn('Auto-assign failed (non-fatal):', err.message);
       }
 
-      await lead.save();
+      try {
+        await lead.save();
+      } catch (saveErr) {
+        // Fallback: If MongoDB throws E11000 duplicate key error because of a DB unique index,
+        // treat it as a duplicate and return 200 OK.
+        if (saveErr.code === 11000) {
+          console.info(`MongoDB duplicate key skipped (phone: ${phone})`);
+          return res.status(200).json({ ok: true, duplicate: true, id: null });
+        }
+        // If it's a different save error, throw it so the outer catch can log it.
+        throw saveErr;
+      }
 
       // 2. RETURN RESPONSE IMMEDIATELY
       res.status(200).json({ ok: true, id: lead._id });
