@@ -216,14 +216,17 @@ class LeadController {
         return res.status(400).json({ ok: false, error: 'Phone is required' });
       }
 
+      // Helper to escape regex
+      const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
       // Check duplicate by phone AND product (robust matching)
       let existing = null;
       try {
         const LeadModel = require('../../models/Lead.model');
-        const query = { 'contact.phone': new RegExp(`^${phone.trim()}$`, 'i') };
+        const query = { 'contact.phone': new RegExp(`^${escapeRegex(phone.trim())}$`, 'i') };
         
         if (product) {
-          query['product.name'] = new RegExp(`^${product.trim()}$`, 'i');
+          query['product.name'] = new RegExp(`^${escapeRegex(product.trim())}$`, 'i');
         } else {
           // If no product provided, check for either missing product OR empty product
           query['product.name'] = { $in: [null, '', { $exists: false }] };
@@ -255,6 +258,15 @@ class LeadController {
         normalizedSource = 'other';
       }
 
+      // Parse quantity safely (handle strings like "57 sq ft")
+      let parsedQuantity = undefined;
+      if (quantity) {
+        const num = parseInt(quantity, 10);
+        if (!isNaN(num)) {
+          parsedQuantity = num;
+        }
+      }
+
       // Map flat payload to nested Lead schema
       const mappedData = {
         source: normalizedSource,
@@ -268,7 +280,7 @@ class LeadController {
         },
         product: {
           name: product,
-          quantity: quantity ? Number(quantity) : undefined,
+          quantity: parsedQuantity,
         },
         usage,
         description,
