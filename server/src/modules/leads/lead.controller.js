@@ -226,9 +226,25 @@ class LeadController {
         return res.status(200).json({ ok: true, duplicate: true, id: existing._id });
       }
 
+      // Normalize source
+      const validSources = Object.values(require('../../utils/constants').LEAD_SOURCES);
+      let normalizedSource = 'other';
+      
+      if (source) {
+        const lowerSource = source.toLowerCase().trim();
+        if (validSources.includes(lowerSource)) {
+          normalizedSource = lowerSource;
+        } else if (lowerSource === 'meta') {
+          normalizedSource = 'facebook';
+        }
+      } else {
+        // Fallback if n8n doesn't send a source at all
+        normalizedSource = 'other';
+      }
+
       // Map flat payload to nested Lead schema
       const mappedData = {
-        source: source || 'indiamart',
+        source: normalizedSource,
         stage: require('../../utils/constants').LEAD_STAGES.NEW,
         contact: {
           name,
