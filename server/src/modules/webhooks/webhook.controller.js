@@ -121,11 +121,27 @@ class WebhookController {
     }
 
     const body = req.body;
-    if (!body || body.object !== 'whatsapp_business_account') {
-      // Could be a page/leadgen object
-      if (body && body.object === 'page') {
-        await this._processMetaLeadgen(body);
+    if (body && body.object === 'page') {
+      const entries = body.entry || [];
+      for (const entry of entries) {
+        if (entry.changes && entry.changes.some(c => c.field === 'leadgen')) {
+          await this._processMetaLeadgen(entry);
+        } else if (entry.messaging) {
+          await this._processMetaSocial(entry, 'facebook');
+        }
       }
+      return;
+    } else if (body && body.object === 'instagram') {
+      const entries = body.entry || [];
+      for (const entry of entries) {
+        if (entry.messaging) {
+          await this._processMetaSocial(entry, 'instagram');
+        }
+      }
+      return;
+    }
+
+    if (!body || body.object !== 'whatsapp_business_account') {
       return;
     }
 
@@ -228,6 +244,32 @@ class WebhookController {
         await WebhookLog.findByIdAndUpdate(webhookLog._id, {
           $set: { status: 'failed', error: err.message },
         });
+      }
+    }
+  }
+
+  /**
+   * Process Meta Facebook/Instagram inbound messages.
+   */
+  async _processMetaSocial(entry, channel) {
+    const messagingEvents = entry.messaging || [];
+    for (const event of messagingEvents) {
+      if (event.message && !event.message.is_echo) {
+        try {
+          const senderId = event.sender.id;
+          const text = event.message.text || '[media]';
+          const mid = event.message.mid;
+          
+          await conversationService.handleInboundSocialMessage({
+            channel,
+            senderId,
+            text,
+            messageId: mid,
+            rawEvent: event,
+          });
+        } catch (err) {
+          logger.error(`handleInboundSocialMessage error for ${channel}: ${err.message}`);
+        }
       }
     }
   }

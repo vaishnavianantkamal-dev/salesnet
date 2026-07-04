@@ -66,6 +66,10 @@ const leadSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    social: {
+      facebookId: { type: String, trim: true },
+      instagramId: { type: String, trim: true },
+    },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

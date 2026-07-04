@@ -456,6 +456,86 @@ class ConversationService {
   }
 
   /**
+   * Process inbound Facebook/Instagram social messages.
+   * Maps PSID/IGSID to leads. If unknown, creates a new lead.
+   */
+  async handleInboundSocialMessage(payload) {
+    const { channel, senderId, text, messageId, rawEvent } = payload;
+    
+    if (!senderId) {
+      logger.warn(`handleInboundSocialMessage: missing senderId for channel ${channel}`);
+      return;
+    }
+
+    // Lookup lead by social ID
+    let lead = null;
+    if (channel === 'facebook') {
+      lead = await Lead.findOne({ 'social.facebookId': senderId, isDeleted: false }).lean();
+    } else if (channel === 'instagram') {
+      lead = await Lead.findOne({ 'social.instagramId': senderId, isDeleted: false }).lean();
+    }
+
+    // If no lead exists, create one!
+    if (!lead) {
+      logger.info(`Unknown ${channel} sender ${senderId}, creating new lead...`);
+      const socialSource = channel === 'facebook' ? LEAD_SOURCES.FACEBOOK : LEAD_SOURCES.OTHER;
+      const dummyPhone = `${channel === 'facebook' ? 'FB' : 'IG'}-${senderId}`;
+      
+      const newLeadData = {
+        source: socialSource,
+        contact: {
+          name: `${channel} User ${senderId.slice(-4)}`,
+          phone: dummyPhone, // To satisfy required phone constraint
+        },
+        social: {
+          [channel === 'facebook' ? 'facebookId' : 'instagramId']: senderId,
+        },
+        source_metadata: rawEvent,
+      };
+      
+      const created = await leadRepository.create(newLeadData);
+      lead = await Lead.findById(created._id).lean();
+    }
+
+    const leadId = lead._id;
+
+    // Deduplicate
+    if (messageId) {
+      const existing = await conversationRepository.findByWaMessageId(messageId);
+      if (existing) {
+        logger.debug(`handleInboundSocialMessage: duplicate messageId=${messageId}, skipping`);
+        return;
+      }
+    }
+
+    const conversation = await conversationRepository.create({
+      lead: leadId,
+      channel: channel === 'facebook' ? CHANNELS.FACEBOOK : CHANNELS.INSTAGRAM,
+      direction: 'inbound',
+      messageType: MESSAGE_TYPES.TEXT,
+      content: text || '[media]',
+      deliveryStatus: DELIVERY_STATUS.DELIVERED,
+      externalMessageId: messageId || null,
+      sentBy: null,
+      whatsappData: rawEvent, // repurpose for channel raw event
+    });
+
+    // Update lead's last activity timestamp
+    await Lead.findByIdAndUpdate(leadId, { $set: { lastActivityAt: new Date() } });
+
+    // Scoring
+    await this._applyScoring(leadId, SCORING_EVENTS.WHATSAPP_REPLIED, null);
+
+    // Emit socket event to anyone watching this lead's conversation
+    emitToLead(String(leadId), 'message:received', {
+      leadId: String(leadId),
+      conversation,
+    });
+
+    return conversation;
+  }
+
+  /**
    * Process a WhatsApp delivery status update from Meta webhook.
    * Updates deliveryStatus; if status is 'read', applies scoring.
    *
