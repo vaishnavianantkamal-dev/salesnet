@@ -303,7 +303,7 @@ class LeadController {
       await lead.save();
 
       // 2. RETURN RESPONSE IMMEDIATELY
-      res.status(201).json({ ok: true, id: lead._id });
+      res.status(200).json({ ok: true, id: lead._id });
 
       // 3. BACKGROUND TASKS (Fire and forget, strictly safe)
       setImmediate(async () => {
