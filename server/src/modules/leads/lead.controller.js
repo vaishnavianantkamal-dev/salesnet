@@ -217,12 +217,23 @@ class LeadController {
       }
 
       // Check duplicate by phone AND product
-      const existing = await require('../../models/Lead.model').findOne({
-        'contact.phone': phone,
-        'product.name': product || { $exists: false }
-      }).lean();
+      let existing = null;
+      try {
+        const LeadModel = require('../../models/Lead.model');
+        const query = { 'contact.phone': phone };
+        if (product) {
+          query['product.name'] = product;
+        } else {
+          // If no product is provided, check if a lead exists with this phone and no product
+          query['product.name'] = { $exists: false };
+        }
+        existing = await LeadModel.findOne(query).lean();
+      } catch (dupErr) {
+        console.warn('Duplicate check failed, proceeding to create new lead:', dupErr.message);
+      }
 
       if (existing) {
+        console.info(`Duplicate lead skipped (phone: ${phone}, product: ${product || 'none'}):`, existing._id);
         return res.status(200).json({ ok: true, duplicate: true, id: existing._id });
       }
 
