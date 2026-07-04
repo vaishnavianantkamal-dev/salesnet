@@ -59,6 +59,50 @@ export default function Lead360ProfileBody({ data }) {
         {/* LEFT column */}
         <div className="space-y-4">
 
+          {/* Lead Requirements */}
+          {(lead.product?.name || lead.usage || lead.description || (lead.images && lead.images.length > 0)) && (
+            <Card>
+              <CardHeader className="p-4 pb-3">
+                <div className="text-[10px] tracking-wider uppercase text-muted-foreground font-semibold">Requirement</div>
+                <CardTitle className="text-sm font-semibold">Lead Details & Needs</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <div className="space-y-3">
+                  {lead.product?.name && (
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-0.5">Product</span>
+                      <div className="text-sm font-medium text-foreground">{lead.product.name} {lead.product.quantity ? `(Qty: ${lead.product.quantity})` : ''}</div>
+                    </div>
+                  )}
+                  {lead.usage && (
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-0.5">Usage / Purpose</span>
+                      <div className="text-sm text-foreground">{lead.usage}</div>
+                    </div>
+                  )}
+                  {lead.description && (
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-0.5">Description</span>
+                      <p className="text-sm text-foreground whitespace-pre-wrap">{lead.description}</p>
+                    </div>
+                  )}
+                  {lead.images?.length > 0 && (
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-1.5">Attached Images</span>
+                      <div className="flex flex-wrap gap-2">
+                        {lead.images.map((imgUrl, i) => (
+                          <a key={i} href={imgUrl} target="_blank" rel="noreferrer" className="block h-16 w-16 overflow-hidden rounded-md border border-border hover:opacity-80 transition-opacity">
+                            <img src={imgUrl} alt="Attached" className="object-cover w-full h-full" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* AI Insights */}
           <Card>
             <CardHeader className="p-4 pb-3">
