@@ -67,6 +67,13 @@ app.get('/health', (req, res) => res.status(200).json({
   version: '1.0.0',
 }));
 
+// Root endpoint for friendly message
+app.get('/', (req, res) => res.status(200).json({
+  success: true,
+  message: 'SalesNest CRM API is running! 🚀',
+  version: '1.0.0'
+}));
+
 // Webhooks bypass rate limiter (verified via signature)
 app.use('/api/webhooks', webhookRoutes);
 
