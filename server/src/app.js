@@ -43,7 +43,10 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: config.CLIENT_URL,
+  origin: [
+    config.CLIENT_URL,
+    config.CLIENT_URL && config.CLIENT_URL.replace(/\/$/, '')
+  ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
