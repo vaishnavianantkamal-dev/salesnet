@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node --dns-result-order=ipv4first src/server.js",
     "dev": "nodemon --exec \"node --dns-result-order=ipv4first\" src/server.js",
-    "seed": "node src/utils/seed.js"
+    "seed": "node src/utils/seed.js",
+    "build": "echo 'No build step required for server'"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.478.0",
