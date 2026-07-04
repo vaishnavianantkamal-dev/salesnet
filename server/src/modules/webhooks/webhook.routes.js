@@ -4,6 +4,14 @@ const express = require('express');
 const router = express.Router();
 
 const webhookController = require('./webhook.controller');
+const wapzioController = require('./wapzio.controller');
+
+// ---------------------------------------------------------------------------
+// Wapzio Webhook
+// POST /webhooks/wapzio
+// ---------------------------------------------------------------------------
+router.post('/wapzio', wapzioController.handleEvent.bind(wapzioController));
+
 
 // ---------------------------------------------------------------------------
 // Meta / Facebook webhook

@@ -65,6 +65,17 @@ class ConversationRepository {
   }
 
   /**
+   * Mark all inbound messages for a given lead as read.
+   * @param {string|ObjectId} leadId
+   */
+  async markAsRead(leadId) {
+    return Conversation.updateMany(
+      { lead: leadId, direction: 'inbound', deliveryStatus: { $ne: 'read' } },
+      { $set: { deliveryStatus: 'read' } }
+    );
+  }
+
+  /**
    * Inbox view: latest conversation per lead for the current user's scope.
    * Groups by lead, picks the last message and joins lead info.
    *
@@ -120,7 +131,7 @@ class ConversationRepository {
           as: 'leadInfo',
         },
       },
-      { $unwind: { path: '$leadInfo', preserveNullAndEmpty: false } },
+      { $unwind: { path: '$leadInfo', preserveNullAndEmptyArrays: false } },
 
       // Filter out deleted leads
       { $match: { 'leadInfo.isDeleted': false } },
@@ -137,7 +148,7 @@ class ConversationRepository {
       {
         $unwind: {
           path: '$assignedToInfo',
-          preserveNullAndEmpty: true,
+          preserveNullAndEmptyArrays: true,
         },
       },
 

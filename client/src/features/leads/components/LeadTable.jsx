@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { openLeadModal } from '@/features/ui/uiSlice'
 import {
   MoreHorizontal,
   Edit,
@@ -117,7 +118,7 @@ export default function LeadTable({
   onStageChange,
   on360,
 }) {
-  const navigate = useNavigate()
+  const dispatch = useDispatch()
 
   return (
     <div className="data-table-container">
@@ -175,13 +176,13 @@ export default function LeadTable({
                 <TableRow
                   key={lead._id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate(`/leads/${lead._id}`)}
+                  onClick={() => dispatch(openLeadModal(lead._id))}
                 >
                   {/* Lead Name */}
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div
                       className="cursor-pointer"
-                      onClick={() => navigate(`/leads/${lead._id}`)}
+                      onClick={() => dispatch(openLeadModal(lead._id))}
                     >
                       <p className="font-medium text-sm text-foreground">
                         {lead.contact?.name || '—'}
@@ -292,7 +293,7 @@ export default function LeadTable({
                             Lead 360°
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => navigate(`/leads/${lead._id}`)}>
+                          <DropdownMenuItem onClick={() => dispatch(openLeadModal(lead._id))}>
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>

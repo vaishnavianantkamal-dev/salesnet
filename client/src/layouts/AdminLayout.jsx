@@ -1,13 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
 import { Toaster } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
+import { socket } from '@/app/socket'
+import { useToast } from '@/hooks/useToast'
+import GlobalLeadModal from '@/components/GlobalLeadModal'
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const handleNewLead = (lead) => {
+      toast({
+        title: 'New Lead Arrived!',
+        description: `${lead.contact?.name || lead.contact?.phone} just submitted their info.`,
+      })
+    }
+
+    socket.on('new_lead', handleNewLead)
+
+    return () => {
+      socket.off('new_lead', handleNewLead)
+    }
+  }, [toast])
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -32,6 +51,7 @@ export default function AdminLayout() {
       </div>
 
       <Toaster />
+      <GlobalLeadModal />
     </div>
   )
 }

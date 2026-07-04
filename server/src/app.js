@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 
 const config = require('./config/env');
 const logger = require('./utils/logger');
@@ -30,6 +31,7 @@ const reportsRoutes = require('./modules/reports/reports.routes');
 const notificationRoutes = require('./modules/notifications/notification.routes');
 const integrationRoutes = require('./modules/integrations/integration.routes');
 const webhookRoutes = require('./modules/webhooks/webhook.routes');
+const landingRoutes = require('./modules/landing/landing.routes');
 
 const app = express();
 
@@ -56,6 +58,7 @@ if (config.NODE_ENV !== 'test') {
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/health', (req, res) => res.status(200).json({
   status: 'ok',
@@ -99,6 +102,7 @@ app.use('/api/scoring', scoringRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/integrations', integrationRoutes);
+app.use('/api/landing', landingRoutes);
 
 // 404
 app.use((req, res, next) => {

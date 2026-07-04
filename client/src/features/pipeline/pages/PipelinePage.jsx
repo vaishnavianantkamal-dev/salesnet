@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react'
+import { useDispatch } from 'react-redux'
+import { openLeadModal } from '@/features/ui/uiSlice'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Kanban, TrendingUp, LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -165,7 +167,7 @@ function PipelineColumn({ stage, leads, onMoveStage, onAddLead, onCardClick }) {
 
 export default function PipelinePage() {
   const queryClient = useQueryClient()
-  const [selectedLead, setSelectedLead] = useState(null)
+  const dispatch = useDispatch()
 
   const { data, isLoading } = useQuery({
     queryKey: ['pipeline-leads'],
@@ -244,7 +246,7 @@ export default function PipelinePage() {
   }
 
   const handleCardClick = (lead) => {
-    setSelectedLead(lead)
+    dispatch(openLeadModal(lead._id || lead.id))
   }
 
   const totalLeads = leads.length

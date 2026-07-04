@@ -67,14 +67,20 @@ class ConversationService {
   /**
    * Build the Meta Cloud API headers and base URL.
    */
-  _metaApiConfig() {
-    if (!config.WA_ACCESS_TOKEN || !config.WA_PHONE_NUMBER_ID) {
+  async _metaApiConfig() {
+    const Integration = mongoose.model('Integration');
+    const integration = await Integration.findOne({ name: 'meta_whatsapp' }).lean();
+
+    const accessToken = integration?.config?.accessToken || config.WA_ACCESS_TOKEN;
+    const phoneNumberId = integration?.config?.phoneNumberId || config.WA_PHONE_NUMBER_ID;
+
+    if (!accessToken || !phoneNumberId) {
       throw new AppError('WhatsApp integration is not configured', 503);
     }
     return {
-      url: `https://graph.facebook.com/v19.0/${config.WA_PHONE_NUMBER_ID}/messages`,
+      url: `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
       headers: {
-        Authorization: `Bearer ${config.WA_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
     };
@@ -125,7 +131,7 @@ class ConversationService {
       throw new AppError('Lead does not have a phone number', 422);
     }
 
-    const { url, headers } = this._metaApiConfig();
+    const { url, headers } = await this._metaApiConfig();
 
     // Build component parameters
     const components = [];
@@ -199,11 +205,7 @@ class ConversationService {
   }
 
   /**
-   * Send a free-text WhatsApp message (within 24 h customer-service window).
-   *
-   * @param {string} leadId
-   * @param {string} messageText
-   * @param {Object} sentBy - user document (req.user)
+   * Send a free-text WhatsApp message (within 24 h customer-service window) directly via Meta API.
    */
   async sendWhatsAppMessage(leadId, messageText, sentBy) {
     const lead = await leadRepository.findById(leadId);
@@ -212,14 +214,17 @@ class ConversationService {
       throw new AppError('Lead does not have a phone number', 422);
     }
 
-    const { url, headers } = this._metaApiConfig();
+    const { url, headers } = await this._metaApiConfig();
 
     const payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: phone,
       type: 'text',
-      text: { preview_url: false, body: messageText },
+      text: {
+        preview_url: false,
+        body: messageText,
+      },
     };
 
     let waMessageId = null;
@@ -237,7 +242,7 @@ class ConversationService {
         err.response && err.response.data && err.response.data.error
           ? err.response.data.error.message
           : err.message;
-      logger.error(`Meta API message send failed: ${metaError}`);
+      logger.error(`Meta API text send failed: ${metaError}`);
       throw new AppError(`WhatsApp send failed: ${metaError}`, 502);
     }
 
@@ -260,7 +265,7 @@ class ConversationService {
     await this._createActivity(
       leadId,
       ACTIVITY_TYPES.MESSAGE_SENT,
-      'WhatsApp message sent',
+      `WhatsApp message sent`,
       sentBy._id || sentBy.id,
       { messageId: waMessageId }
     );
@@ -270,6 +275,82 @@ class ConversationService {
 
     return conversation;
   }
+
+  /**
+   * Send a free-text Facebook message via Wapzio.
+   */
+  async sendFacebookMessage(leadId, messageText, sentBy) {
+    return this._sendWapzioMessage(leadId, messageText, sentBy, 'facebook', 'https://api.wapzio.com/api/webhook/facebook');
+  }
+
+  /**
+   * Send a free-text Instagram message via Wapzio.
+   */
+  async sendInstagramMessage(leadId, messageText, sentBy) {
+    return this._sendWapzioMessage(leadId, messageText, sentBy, 'instagram', 'https://api.wapzio.com/api/webhook/instagram');
+  }
+
+  /**
+   * Internal helper to send omnichannel messages via Wapzio
+   */
+  async _sendWapzioMessage(leadId, messageText, sentBy, channel, endpoint) {
+    const lead = await leadRepository.findById(leadId);
+    const phone = lead.contact && lead.contact.phone;
+    if (!phone) {
+      throw new AppError('Lead does not have a phone number or identifier', 422);
+    }
+
+    // You may need to add Wapzio API Keys here
+    const headers = { 'Content-Type': 'application/json' };
+
+    // This payload is a best-guess based on standard webhook architectures.
+    const payload = {
+      to: phone,
+      channel: channel,
+      type: 'text',
+      text: messageText,
+    };
+
+    let wapzioMessageId = null;
+    try {
+      const response = await axios.post(endpoint, payload, { headers });
+      wapzioMessageId = response.data?.id || response.data?.messageId || null;
+    } catch (err) {
+      const metaError = err.response?.data?.error?.message || err.message;
+      logger.error(`Wapzio API message send failed: ${metaError}`);
+      throw new AppError(`Wapzio send failed: ${metaError}`, 502);
+    }
+
+    const conversation = await conversationRepository.create({
+      lead: leadId,
+      channel: channel,
+      direction: 'outbound',
+      messageType: MESSAGE_TYPES.TEXT,
+      content: messageText,
+      deliveryStatus: DELIVERY_STATUS.SENT,
+      externalMessageId: wapzioMessageId,
+      sentBy: sentBy._id || sentBy.id,
+      whatsappData: null, // Could rename to channelData in the future
+    });
+
+    // Update lead's last activity timestamp
+    await Lead.findByIdAndUpdate(leadId, { $set: { lastActivityAt: new Date() } });
+
+    // Activity log
+    await this._createActivity(
+      leadId,
+      ACTIVITY_TYPES.MESSAGE_SENT,
+      `${channel} message sent`,
+      sentBy._id || sentBy.id,
+      { messageId: wapzioMessageId, channel }
+    );
+
+    // Scoring
+    await this._applyScoring(leadId, SCORING_EVENTS.LEAD_CONTACTED, sentBy._id || sentBy.id);
+
+    return conversation;
+  }
+
 
   /**
    * Inbox: latest conversation per lead for the requesting user.
@@ -317,7 +398,7 @@ class ConversationService {
    *   Expected fields: waMessageId, from (phone), text, messageType, mediaUrl, timestamp, waData
    */
   async handleInboundMessage(payload) {
-    const { waMessageId, from, text, messageType = 'text', mediaUrl = null, waData = {} } = payload;
+    const { waMessageId, from, text, messageType = 'text', mediaUrl = null, channel = 'whatsapp', waData = {} } = payload;
 
     if (!from) {
       logger.warn('handleInboundMessage: missing "from" phone number');
@@ -348,7 +429,7 @@ class ConversationService {
 
     const conversation = await conversationRepository.create({
       lead: leadId,
-      channel: CHANNELS.WHATSAPP,
+      channel: channel,
       direction: 'inbound',
       messageType: messageType || MESSAGE_TYPES.TEXT,
       content: text || '[media message]',
@@ -413,6 +494,15 @@ class ConversationService {
     }
 
     return updated;
+  }
+
+  /**
+   * Mark all conversations for a lead as read.
+   * @param {string} leadId
+   */
+  async markAsRead(leadId) {
+    await conversationRepository.markAsRead(leadId);
+    return { success: true };
   }
 }
 

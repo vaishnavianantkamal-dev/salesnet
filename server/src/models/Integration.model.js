@@ -49,7 +49,7 @@ const integrationSchema = new mongoose.Schema(
   }
 );
 
-integrationSchema.index({ name: 1 }, { unique: true });
+
 integrationSchema.index({ type: 1 });
 integrationSchema.index({ isActive: 1 });
 

@@ -24,6 +24,8 @@ const QuotationDetailPage = lazy(() => import('./features/quotations/pages/Quota
 const ProductsPage = lazy(() => import('./features/products/pages/ProductsPage'))
 const InstallationsPage = lazy(() => import('./features/installations/pages/InstallationsPage'))
 const ReportsPage = lazy(() => import('./features/reports/pages/ReportsPage'))
+const ManageLandingPage = lazy(() => import('./features/landingBuilder/pages/ManageLandingPage'))
+const PublicLandingPage = lazy(() => import('./features/landingBuilder/pages/PublicLandingPage'))
 
 function PageLoader() {
   return (
@@ -37,7 +39,8 @@ export default function App() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<PublicLandingPage />} />
+        <Route path="/landing" element={<PublicLandingPage />} />
 
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
@@ -75,6 +78,7 @@ export default function App() {
           <Route path="/users" element={<ProtectedRoute requiredPermission="users:read"><UsersPage /></ProtectedRoute>} />
           <Route path="/roles" element={<ProtectedRoute requiredPermission="roles:read"><RolesPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          <Route path="/manage-landing" element={<ProtectedRoute><ManageLandingPage /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

@@ -10,6 +10,7 @@ const createBullMQConnection = () => {
   const client = new Redis(config.REDIS_URL, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    retryStrategy: () => null,
   });
 
   client.on('connect', () => logger.info('BullMQ Redis connection established'));
@@ -26,12 +27,22 @@ const connectRedis = async () => {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     lazyConnect: true,
+    retryStrategy: () => null,
   });
 
   redisClient.on('connect', () => logger.info('Redis connected'));
   redisClient.on('ready', () => logger.info('Redis ready'));
-  redisClient.on('error', (err) => logger.error(`Redis error: ${err.message}`));
-  redisClient.on('close', () => logger.warn('Redis connection closed'));
+  redisClient.on('error', (err) => {
+    // Only log error if we've already connected, otherwise it will be caught in connect()
+    if (redisClient.status === 'ready') {
+      logger.error(`Redis error: ${err.message}`);
+    }
+  });
+  redisClient.on('close', () => {
+    if (redisClient.status === 'ready') {
+      logger.warn('Redis connection closed');
+    }
+  });
   redisClient.on('reconnecting', () => logger.info('Redis reconnecting...'));
 
   try {
@@ -39,7 +50,7 @@ const connectRedis = async () => {
     logger.info('Redis client initialized');
     return redisClient;
   } catch (error) {
-    logger.error(`Redis connection failed: ${error.message}`);
+    // Suppress redundant logger.error if we handle it in server.js
     throw error;
   }
 };

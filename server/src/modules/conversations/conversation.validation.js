@@ -39,13 +39,25 @@ const sendMessageSchema = Joi.object({
     .trim()
     .min(1)
     .max(4096)
-    .required()
+    .optional()
     .messages({
-      'any.required': 'message is required',
       'string.empty': 'message cannot be empty',
       'string.min': 'message must be at least 1 character',
       'string.max': 'message cannot exceed 4096 characters',
     }),
-});
+  body: Joi.string()
+    .trim()
+    .min(1)
+    .max(4096)
+    .optional()
+    .messages({
+      'string.empty': 'body cannot be empty',
+      'string.min': 'body must be at least 1 character',
+      'string.max': 'body cannot exceed 4096 characters',
+    }),
+  channel: Joi.string()
+    .trim()
+    .optional(),
+}).or('message', 'body');
 
 module.exports = { sendTemplateSchema, sendMessageSchema };

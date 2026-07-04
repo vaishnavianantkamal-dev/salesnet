@@ -46,6 +46,7 @@ const startServer = async () => {
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received. Starting graceful shutdown...`);
 
+
   server.close(async () => {
     logger.info('HTTP server closed');
 

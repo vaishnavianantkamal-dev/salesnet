@@ -20,6 +20,7 @@ import {
   Sun,
   Moon,
   X,
+  LayoutTemplate
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -40,6 +41,7 @@ const NAV_MAIN = [
 ]
 
 const NAV_SYSTEM = [
+  { label: 'Manage Landing', icon: LayoutTemplate, to: '/manage-landing', permission: 'admin' },
   { label: 'Settings',  icon: Settings,        to: '/settings' },
   { label: 'Users',     icon: UserCog,         to: '/users',  permission: 'users:read' },
   { label: 'Roles',     icon: Shield,          to: '/roles',  permission: 'roles:read' },

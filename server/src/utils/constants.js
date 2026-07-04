@@ -73,6 +73,9 @@ const ALL_PERMISSIONS = Object.values(PERMISSIONS);
 
 const CHANNELS = {
   WHATSAPP: 'whatsapp',
+  FACEBOOK: 'facebook',
+  INSTAGRAM: 'instagram',
+  INDIAMART: 'indiamart',
   EMAIL: 'email',
   SMS: 'sms',
   CALL: 'call',

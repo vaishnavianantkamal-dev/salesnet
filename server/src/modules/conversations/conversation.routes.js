@@ -17,7 +17,14 @@ router.get(
   conversationController.getByLead.bind(conversationController)
 );
 
-// POST /leads/:leadId/whatsapp/template
+// POST /leads/:leadId/conversations/template
+router.post(
+  '/leads/:leadId/conversations/template',
+  authenticate,
+  authorize('conversations:send'),
+  validate(sendTemplateSchema),
+  conversationController.sendTemplate.bind(conversationController)
+);
 router.post(
   '/leads/:leadId/whatsapp/template',
   authenticate,
@@ -26,13 +33,28 @@ router.post(
   conversationController.sendTemplate.bind(conversationController)
 );
 
-// POST /leads/:leadId/whatsapp/message
+// POST /leads/:leadId/conversations/message
+router.post(
+  '/leads/:leadId/conversations/message',
+  authenticate,
+  authorize('conversations:send'),
+  validate(sendMessageSchema),
+  conversationController.sendMessage.bind(conversationController)
+);
 router.post(
   '/leads/:leadId/whatsapp/message',
   authenticate,
   authorize('conversations:send'),
   validate(sendMessageSchema),
   conversationController.sendMessage.bind(conversationController)
+);
+
+// PATCH /leads/:leadId/conversations/read
+router.patch(
+  '/leads/:leadId/conversations/read',
+  authenticate,
+  authorize('conversations:read'),
+  conversationController.markRead.bind(conversationController)
 );
 
 // GET /inbox

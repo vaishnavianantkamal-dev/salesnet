@@ -42,18 +42,38 @@ class ConversationController {
   }
 
   /**
-   * POST /leads/:leadId/whatsapp/message
-   * Send a free-text WhatsApp message.
+   * POST /leads/:leadId/whatsapp/message (Note: routes to any channel now)
+   * Send a free-text omnichannel message via Wapzio.
    */
   async sendMessage(req, res, next) {
     try {
-      const { message } = req.body;
-      const conversation = await conversationService.sendWhatsAppMessage(
-        req.params.leadId,
-        message,
-        req.user
-      );
-      return sendSuccess(res, { conversation }, 'WhatsApp message sent successfully', 201);
+      const { body, message, channel } = req.body;
+      const text = body || message;
+      const ch = channel || 'whatsapp';
+
+      let conversation;
+      if (ch === 'facebook') {
+        conversation = await conversationService.sendFacebookMessage(req.params.leadId, text, req.user);
+      } else if (ch === 'instagram') {
+        conversation = await conversationService.sendInstagramMessage(req.params.leadId, text, req.user);
+      } else {
+        conversation = await conversationService.sendWhatsAppMessage(req.params.leadId, text, req.user);
+      }
+
+      return sendSuccess(res, { message: conversation }, `${ch} message sent successfully via Wapzio`, 201);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * PATCH /leads/:leadId/conversations/read
+   * Mark all conversations for a lead as read.
+   */
+  async markRead(req, res, next) {
+    try {
+      const result = await conversationService.markAsRead(req.params.leadId);
+      return sendSuccess(res, result, 'Conversations marked as read successfully', 200);
     } catch (err) {
       next(err);
     }

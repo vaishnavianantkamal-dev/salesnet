@@ -184,6 +184,10 @@ class LeadService {
       // Scoring failure must not block lead creation
     }
 
+    // Emit real-time notification
+    const { emitToAll } = require('../../config/socket');
+    emitToAll('new_lead', lead);
+
     return { lead, isDuplicate: false };
   }
 

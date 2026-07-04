@@ -282,7 +282,7 @@ class ReportsController {
             as: 'user',
           },
         },
-        { $unwind: { path: '$user', preserveNullAndEmpty: false } },
+        { $unwind: { path: '$user', preserveNullAndEmptyArrays: false } },
         {
           $project: {
             _id: 0,

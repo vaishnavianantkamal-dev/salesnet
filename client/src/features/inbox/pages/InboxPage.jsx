@@ -11,6 +11,8 @@ import {
   Facebook,
   MessageCircle,
   X,
+  Check,
+  CheckCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { socket } from '@/app/socket'
@@ -132,6 +134,19 @@ function ConversationItem({ conv, isActive, onClick }) {
   )
 }
 
+function getStatusTicks(status) {
+  if (status === 'sent') {
+    return <Check className="w-3.5 h-3.5 text-indigo-200/70 inline-block" />
+  }
+  if (status === 'delivered') {
+    return <CheckCheck className="w-3.5 h-3.5 text-indigo-200/70 inline-block" />
+  }
+  if (status === 'read') {
+    return <CheckCheck className="w-3.5 h-3.5 text-sky-300 inline-block" />
+  }
+  return null
+}
+
 function MessageBubble({ message }) {
   const isOutbound = message.direction === 'outbound'
 
@@ -153,13 +168,14 @@ function MessageBubble({ message }) {
       )}>
         {message.body || message.content || message.text}
         <div className={cn(
-          'text-[10px] mt-1 text-right',
+          'text-[10px] mt-1 text-right flex items-center justify-end gap-1',
           isOutbound ? 'text-indigo-200' : 'text-muted-foreground'
         )}>
           {formatTimestamp(message.createdAt || message.timestamp)}
           {message.channel && (
-            <span className="ml-1 opacity-70">{getChannelIcon(message.channel)}</span>
+            <span className="opacity-70">{getChannelIcon(message.channel)}</span>
           )}
+          {isOutbound && getStatusTicks(message.deliveryStatus)}
         </div>
       </div>
     </div>
@@ -214,9 +230,21 @@ export default function InboxPage() {
     refetchInterval: 30000,
   })
 
-  const conversations = Array.isArray(inboxData)
+  const rawConversations = Array.isArray(inboxData)
     ? inboxData
-    : (inboxData?.conversations || inboxData?.leads || [])
+    : (inboxData?.inbox || inboxData?.conversations || inboxData?.leads || [])
+
+  const conversations = (rawConversations || []).map(conv => {
+    if (!conv) return null;
+    return {
+      ...conv,
+      leadName: conv.leadName || conv.lead?.contact?.name || 'Unknown Lead',
+      lastMessageAt: conv.lastMessage?.createdAt || conv.lastMessageAt,
+      channel: conv.lastMessage?.channel || conv.channel || 'whatsapp',
+      temperature: conv.lead?.temperature || conv.temperature,
+      lastMessage: typeof conv.lastMessage === 'object' ? conv.lastMessage?.content : (conv.lastMessage || 'No messages yet')
+    };
+  }).filter(Boolean);
 
   const { data: convData, isLoading: convLoading } = useQuery({
     queryKey: ['conversations', selectedConv?.leadId],
@@ -264,9 +292,27 @@ export default function InboxPage() {
       }
     }
 
+    const handleMessageStatus = (payload) => {
+      const { leadId, messageId, status } = payload || {}
+      if (!leadId || !messageId || !status) return
+
+      if (selectedConv?.leadId === leadId) {
+        setLocalMessages((prev) =>
+          prev.map((msg) => {
+            if (String(msg._id) === String(messageId)) {
+              return { ...msg, deliveryStatus: status }
+            }
+            return msg
+          })
+        )
+      }
+    }
+
     socket.on('message:received', handleMessageReceived)
+    socket.on('message:status', handleMessageStatus)
     return () => {
       socket.off('message:received', handleMessageReceived)
+      socket.off('message:status', handleMessageStatus)
     }
   }, [selectedConv?.leadId, queryClient])
 

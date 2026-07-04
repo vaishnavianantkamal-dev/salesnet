@@ -16,6 +16,7 @@ const connectDB = async (attempt = 1) => {
   const options = {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
+    family: 4, // Force IPv4 to fix Node.js DNS SRV issues
   };
 
   try {
