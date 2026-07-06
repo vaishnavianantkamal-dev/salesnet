@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createLeadApi } from '@/api/leads.api'
-import { useToast } from '@/components/ui/toast'
+import { useToast } from '@/hooks/useToast'
 
 export default function NewChatModal({ onChatCreated }) {
   const [open, setOpen] = useState(false)
