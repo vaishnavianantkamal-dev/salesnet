@@ -263,7 +263,8 @@ export default function InboxPage() {
       const msgs = Array.isArray(convData)
         ? convData
         : (convData?.messages || convData?.conversations || [])
-      setLocalMessages(msgs)
+      // Reverse the array so the oldest is at the top, newest at the bottom
+      setLocalMessages([...msgs].reverse())
     }
   }, [convData])
 
