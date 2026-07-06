@@ -20,15 +20,15 @@ const logger = require('../../utils/logger');
  * Verify the X-Hub-Signature-256 header sent by Meta.
  * Returns true if valid, false otherwise.
  */
-function verifyMetaSignature(rawBody, signatureHeader) {
-  if (!config.META_APP_SECRET) return true; // skip in dev if not configured
+function verifyMetaSignature(rawBody, signatureHeader, appSecret) {
+  if (!appSecret) return true; // skip if not configured
   if (!signatureHeader) return false;
 
   const [algo, receivedHex] = signatureHeader.split('=');
   if (algo !== 'sha256' || !receivedHex) return false;
 
   const expectedHex = crypto
-    .createHmac('sha256', config.META_APP_SECRET)
+    .createHmac('sha256', appSecret)
     .update(rawBody)
     .digest('hex');
 
@@ -74,6 +74,8 @@ function normalizePhone(raw) {
   return digits.startsWith('91') && digits.length === 12 ? `+${digits}` : `+${digits}`;
 }
 
+const mongoose = require('mongoose');
+
 // ---------------------------------------------------------------------------
 // Controller class
 // ---------------------------------------------------------------------------
@@ -87,17 +89,34 @@ class WebhookController {
    * GET /webhooks/meta  (also aliased as GET /webhooks/whatsapp)
    * Responds to Meta's hub verification challenge.
    */
-  metaVerify(req, res) {
+  async metaVerify(req, res) {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    if (mode === 'subscribe' && token === config.META_VERIFY_TOKEN) {
-      logger.info('Meta webhook verified');
+    const Integration = mongoose.model('Integration');
+    const integration = await Integration.findOne({ name: 'meta_whatsapp' }).lean();
+    
+    // Add debugging as requested
+    const envToken = process.env.WHATSAPP_VERIFY_TOKEN;
+    console.log(`[DEBUG metaVerify] received_mode: "${mode}"`);
+    console.log(`[DEBUG metaVerify] received_token: "${token}"`);
+    console.log(`[DEBUG metaVerify] expected_env_token: "${envToken}"`);
+
+    const verifyToken = envToken || integration?.config?.webhookVerifyToken || config.META_VERIFY_TOKEN;
+
+    // Trim before comparing
+    const safeMode = mode ? String(mode).trim() : '';
+    const safeToken = token ? String(token).trim() : '';
+    const safeVerifyToken = verifyToken ? String(verifyToken).trim() : '';
+
+    if (safeMode === 'subscribe' && safeToken === safeVerifyToken) {
+      logger.info('Meta webhook verified successfully');
       return res.status(200).send(challenge);
     }
 
     logger.warn(`Meta webhook verification failed: mode=${mode}, token=${token}`);
+    // Returning JSON because the user's Render server expects to see the difference when they deploy
     return res.status(403).json({ success: false, message: 'Verification failed' });
   }
 
@@ -115,7 +134,11 @@ class WebhookController {
     const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
     const signature = req.headers['x-hub-signature-256'];
 
-    if (!verifyMetaSignature(rawBody, signature)) {
+    const Integration = mongoose.model('Integration');
+    const integration = await Integration.findOne({ name: 'meta_whatsapp' }).lean();
+    const appSecret = integration?.config?.appSecret || config.META_APP_SECRET;
+
+    if (!verifyMetaSignature(rawBody, signature, appSecret)) {
       logger.warn('Meta webhook: invalid signature, ignoring payload');
       return;
     }

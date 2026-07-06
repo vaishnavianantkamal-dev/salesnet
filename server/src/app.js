@@ -59,7 +59,12 @@ if (config.NODE_ENV !== 'test') {
   }));
 }
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -79,6 +84,7 @@ app.get('/', (req, res) => res.status(200).json({
 
 // Webhooks bypass rate limiter (verified via signature)
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/webhook', webhookRoutes); // Alias for singular route
 
 // Rate limit all other API routes
 app.use('/api', apiLimiter);

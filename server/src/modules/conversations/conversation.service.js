@@ -277,60 +277,70 @@ class ConversationService {
   }
 
   /**
-   * Send a free-text Facebook message via Wapzio.
+   * Send a free-text Facebook message via Meta Graph API.
    */
   async sendFacebookMessage(leadId, messageText, sentBy) {
-    return this._sendWapzioMessage(leadId, messageText, sentBy, 'facebook', 'https://api.wapzio.com/api/webhook/facebook');
+    return this._sendMetaSocialMessage(leadId, messageText, sentBy, 'facebook');
   }
 
   /**
-   * Send a free-text Instagram message via Wapzio.
+   * Send a free-text Instagram message via Meta Graph API.
    */
   async sendInstagramMessage(leadId, messageText, sentBy) {
-    return this._sendWapzioMessage(leadId, messageText, sentBy, 'instagram', 'https://api.wapzio.com/api/webhook/instagram');
+    return this._sendMetaSocialMessage(leadId, messageText, sentBy, 'instagram');
   }
 
   /**
-   * Internal helper to send omnichannel messages via Wapzio
+   * Internal helper to send social messages via Meta Graph API (Messenger/Instagram)
    */
-  async _sendWapzioMessage(leadId, messageText, sentBy, channel, endpoint) {
+  async _sendMetaSocialMessage(leadId, messageText, sentBy, channel) {
     const lead = await leadRepository.findById(leadId);
-    const phone = lead.contact && lead.contact.phone;
-    if (!phone) {
-      throw new AppError('Lead does not have a phone number or identifier', 422);
+    
+    // Retrieve PSID / IGSID
+    const senderId = channel === 'facebook' ? lead.social?.facebookId : lead.social?.instagramId;
+    if (!senderId) {
+      throw new AppError(`Lead does not have a ${channel} ID to reply to`, 422);
     }
 
-    // You may need to add Wapzio API Keys here
-    const headers = { 'Content-Type': 'application/json' };
+    const Integration = mongoose.model('Integration');
+    const integration = await Integration.findOne({ name: 'meta_whatsapp' }).lean();
+    const accessToken = integration?.config?.accessToken || config.WA_ACCESS_TOKEN;
 
-    // This payload is a best-guess based on standard webhook architectures.
-    const payload = {
-      to: phone,
-      channel: channel,
-      type: 'text',
-      text: messageText,
+    if (!accessToken) {
+      throw new AppError('Meta Access Token is not configured', 503);
+    }
+
+    const endpoint = `https://graph.facebook.com/v19.0/me/messages`;
+    const headers = { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
     };
 
-    let wapzioMessageId = null;
+    const payload = {
+      recipient: { id: senderId },
+      message: { text: messageText },
+    };
+
+    let metaMessageId = null;
     try {
       const response = await axios.post(endpoint, payload, { headers });
-      wapzioMessageId = response.data?.id || response.data?.messageId || null;
+      metaMessageId = response.data?.message_id || null;
     } catch (err) {
       const metaError = err.response?.data?.error?.message || err.message;
-      logger.error(`Wapzio API message send failed: ${metaError}`);
-      throw new AppError(`Wapzio send failed: ${metaError}`, 502);
+      logger.error(`Meta ${channel} message send failed: ${metaError}`);
+      throw new AppError(`Meta ${channel} send failed: ${metaError}`, 502);
     }
 
     const conversation = await conversationRepository.create({
       lead: leadId,
-      channel: channel,
+      channel: channel === 'facebook' ? CHANNELS.FACEBOOK : CHANNELS.INSTAGRAM,
       direction: 'outbound',
       messageType: MESSAGE_TYPES.TEXT,
       content: messageText,
       deliveryStatus: DELIVERY_STATUS.SENT,
-      externalMessageId: wapzioMessageId,
+      externalMessageId: metaMessageId,
       sentBy: sentBy._id || sentBy.id,
-      whatsappData: null, // Could rename to channelData in the future
+      whatsappData: null,
     });
 
     // Update lead's last activity timestamp
@@ -342,7 +352,7 @@ class ConversationService {
       ACTIVITY_TYPES.MESSAGE_SENT,
       `${channel} message sent`,
       sentBy._id || sentBy.id,
-      { messageId: wapzioMessageId, channel }
+      { messageId: metaMessageId, channel }
     );
 
     // Scoring
@@ -373,15 +383,13 @@ class ConversationService {
 
     const { data, total } = await conversationRepository.findInbox(matchStage, { skip, limit });
 
-    // For non-admins, filter to assigned leads post-aggregation (the aggregation
-    // already joins lead info, so we can filter in-process here for correctness;
-    // alternatively this is enforced by the aggregation $match on assignedTo).
+    // For non-admins, filter to assigned leads OR unassigned leads (so they can be claimed).
     const userId = String(currentUser._id || currentUser.id);
     const filtered = isAdmin
       ? data
       : data.filter((item) => {
           const assignedTo = item.lead && item.lead.assignedTo;
-          return assignedTo && String(assignedTo._id) === userId;
+          return !assignedTo || String(assignedTo._id) === userId;
         });
 
     return {
@@ -406,14 +414,24 @@ class ConversationService {
     }
 
     // Find lead by phone number
-    const lead = await Lead.findOne({
+    let lead = await Lead.findOne({
       'contact.phone': from,
       isDeleted: false,
     }).lean();
 
     if (!lead) {
-      logger.warn(`handleInboundMessage: no lead found for phone=${from}`);
-      return;
+      logger.info(`Unknown WhatsApp sender ${from}, creating new lead...`);
+      const contactName = waData?.profile?.name || `WhatsApp User ${from.slice(-4)}`;
+      const newLeadData = {
+        source: LEAD_SOURCES.WHATSAPP,
+        contact: {
+          name: contactName,
+          phone: from,
+        },
+        source_metadata: waData,
+      };
+      const created = await leadRepository.create(newLeadData);
+      lead = await Lead.findById(created._id).lean();
     }
 
     const leadId = lead._id;

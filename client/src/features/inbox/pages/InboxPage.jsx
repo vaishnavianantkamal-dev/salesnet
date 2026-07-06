@@ -31,12 +31,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 
 const CHANNELS = [
-  { value: '', label: 'All Channels', icon: MessageSquare },
-  { value: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-  { value: 'sms', label: 'SMS', icon: Phone },
-  { value: 'email', label: 'Email', icon: Mail },
-  { value: 'instagram', label: 'Instagram', icon: Instagram },
-  { value: 'facebook', label: 'Facebook', icon: Facebook },
+  { value: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, activeBg: 'bg-[#25D366]', inactiveIcon: 'text-[#25D366]' },
+  { value: 'facebook', label: 'Facebook', icon: Facebook, activeBg: 'bg-[#1877F2]', inactiveIcon: 'text-[#1877F2]' },
+  { value: 'instagram', label: 'Instagram', icon: Instagram, activeBg: 'bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888]', inactiveIcon: 'text-[#dc2743]' },
 ]
 
 const SAMPLE_TEMPLATES = [
@@ -419,22 +416,23 @@ export default function InboxPage() {
           </div>
 
           {/* Channel filter */}
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-2 flex-wrap pb-2 border-b border-border mb-2 px-1">
             {CHANNELS.map((ch) => {
               const Icon = ch.icon
+              const isActive = channelFilter === ch.value
               return (
                 <button
                   key={ch.value}
                   onClick={() => setChannelFilter(ch.value)}
                   className={cn(
-                    'flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-colors border',
-                    channelFilter === ch.value
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'text-muted-foreground border-border hover:border-indigo-400 hover:text-foreground'
+                    'flex flex-col items-center justify-center gap-1.5 w-16 h-16 rounded-2xl border transition-all',
+                    isActive
+                      ? cn(ch.activeBg, 'border-transparent shadow-sm text-white')
+                      : 'bg-background border-border hover:bg-accent/50 text-muted-foreground'
                   )}
                 >
-                  <Icon className="w-3 h-3" />
-                  {ch.label}
+                  <Icon className={cn("w-6 h-6", !isActive && ch.inactiveIcon)} />
+                  <span className="text-[10px] font-medium leading-none">{ch.label}</span>
                 </button>
               )
             })}
@@ -511,20 +509,21 @@ export default function InboxPage() {
               )}
             </div>
 
-            {/* Messages area */}
             <ScrollArea className="flex-1 p-4">
               {convLoading ? (
                 <MessageSkeleton />
-              ) : localMessages.length === 0 ? (
+              ) : localMessages.filter(m => !channelFilter || m.channel === channelFilter).length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-16 text-muted-foreground">
                   <MessageSquare className="w-10 h-10 opacity-20 mb-3" />
                   <p className="text-sm">No messages yet. Start the conversation!</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {localMessages.map((msg, idx) => (
-                    <MessageBubble key={msg._id || idx} message={msg} />
-                  ))}
+                  {localMessages
+                    .filter(msg => !channelFilter || msg.channel === channelFilter)
+                    .map((msg, idx) => (
+                      <MessageBubble key={msg._id || idx} message={msg} />
+                    ))}
                   <div ref={messagesEndRef} />
                 </div>
               )}

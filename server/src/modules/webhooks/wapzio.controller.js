@@ -28,10 +28,18 @@ class WapzioController {
     }
 
     // Pass to our existing inbound message handler.
-    // Ensure we normalize the channel.
+    // Ensure we normalize the channel and phone number.
+    
+    // Normalize phone helper inline or imported
+    function normalizePhone(raw) {
+      if (!raw) return raw;
+      const digits = String(raw).replace(/\D/g, '');
+      return digits.startsWith('91') && digits.length === 12 ? `+${digits}` : `+${digits}`;
+    }
+
     await conversationService.handleInboundMessage({
       waMessageId: messageId,
-      from: String(from),
+      from: normalizePhone(from),
       text,
       messageType,
       channel,

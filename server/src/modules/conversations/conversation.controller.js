@@ -60,7 +60,7 @@ class ConversationController {
         conversation = await conversationService.sendWhatsAppMessage(req.params.leadId, text, req.user);
       }
 
-      return sendSuccess(res, { message: conversation }, `${ch} message sent successfully via Wapzio`, 201);
+      return sendSuccess(res, { message: conversation }, `${ch} message sent successfully via Meta API`, 201);
     } catch (err) {
       next(err);
     }
