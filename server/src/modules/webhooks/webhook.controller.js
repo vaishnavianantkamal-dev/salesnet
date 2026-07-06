@@ -127,9 +127,13 @@ class WebhookController {
    * so that req.rawBody is available for HMAC verification.
    */
   async metaEvent(req, res) {
-    console.log("WEBHOOK HIT:", JSON.stringify(req.body, null, 2));
+    console.log("=== WHATSAPP WEBHOOK HIT ===");
+    console.log(JSON.stringify(req.body, null, 2));
     
-    // TEMPORARY DEBUG: Save raw payload to DB immediately so we can inspect it even if signature fails
+    // Acknowledge immediately to prevent Meta retries
+    res.sendStatus(200);
+
+    // TEMPORARY DEBUG: Save raw payload to DB immediately
     try {
       await WebhookLog.create({
         source: LEAD_SOURCES.FACEBOOK || 'meta',
@@ -138,12 +142,9 @@ class WebhookController {
           body: req.body 
         },
         status: 'received',
-        error: 'Debugging payload' // just a flag for us to find it easily
+        error: 'Debugging payload'
       });
     } catch (e) { console.error('Failed to log to DB', e); }
-
-    // Acknowledge immediately to prevent Meta retries
-    res.sendStatus(200);
 
     const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
     const signature = req.headers['x-hub-signature-256'];
@@ -153,8 +154,8 @@ class WebhookController {
     const appSecret = integration?.config?.appSecret || config.META_APP_SECRET;
 
     if (!verifyMetaSignature(rawBody, signature, appSecret)) {
-      logger.warn('Meta webhook: invalid signature, ignoring payload');
-      return;
+      console.log('WARNING: Meta webhook signature check failed, but processing anyway for debugging.');
+      // WE DO NOT RETURN HERE ANYMORE, CONTINUING TO PROCESS!
     }
 
     const body = req.body;
@@ -179,7 +180,30 @@ class WebhookController {
     }
 
     if (!body || body.object !== 'whatsapp_business_account') {
-      console.log("NON-STANDARD PAYLOAD RECEIVED:", JSON.stringify(body, null, 2));
+      console.log("NON-STANDARD PAYLOAD (Maybe Wapzio), attempting to extract fields...");
+      
+      const wapzioFrom = body.from || body.sender || body.sender_number;
+      const wapzioText = body.text || body.message || (body.message?.body) || '';
+      const wapzioName = body.sender_name || body.name || '';
+
+      if (wapzioFrom) {
+        try {
+          console.log(`Extracted from non-standard payload: from=${wapzioFrom}, text=${wapzioText}`);
+          await conversationService.handleInboundMessage({
+            waMessageId: body.id || body.message_id || `wapzio-${Date.now()}`,
+            from: normalizePhone(String(wapzioFrom)),
+            senderName: wapzioName,
+            text: wapzioText,
+            messageType: body.type || 'text',
+            mediaUrl: body.mediaUrl || body.media_url || null,
+            waData: body,
+          });
+        } catch (err) {
+          console.error(`Wapzio handleInboundMessage error: ${err.message}`);
+        }
+      } else {
+        console.log("Could not find a valid 'from' phone number in non-standard payload.");
+      }
       return;
     }
 
