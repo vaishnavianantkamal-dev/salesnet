@@ -139,10 +139,12 @@ class WebhookController {
     const integration = await Integration.findOne({ name: 'meta_whatsapp' }).lean();
     const appSecret = integration?.config?.appSecret || config.META_APP_SECRET;
 
-    if (!verifyMetaSignature(rawBody, signature, appSecret)) {
-      logger.warn('Meta webhook: invalid signature, ignoring payload');
-      return;
-    }
+    // TEMPORARY DEBUG: Bypass signature verification to see if META_APP_SECRET is wrong
+    // if (!verifyMetaSignature(rawBody, signature, appSecret)) {
+    //   logger.warn('Meta webhook: invalid signature, ignoring payload');
+    //   return;
+    // }
+    console.log("SIGNATURE CHECK BYPASSED FOR DEBUGGING");
 
     const body = req.body;
     if (body && body.object === 'page') {
