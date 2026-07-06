@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
+import NewChatModal from '../components/NewChatModal'
 
 const CHANNELS = [
   { value: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, activeBg: 'bg-[#25D366]', inactiveIcon: 'text-[#25D366]' },
@@ -438,6 +439,9 @@ export default function InboxPage() {
               )
             })}
           </div>
+
+          {/* New Chat Modal */}
+          <NewChatModal onChatCreated={handleSelectConversation} />
         </div>
 
         {/* Conversation list */}
