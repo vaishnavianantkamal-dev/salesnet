@@ -127,8 +127,10 @@ class WebhookController {
    * so that req.rawBody is available for HMAC verification.
    */
   async metaEvent(req, res) {
+    console.log("WEBHOOK HIT:", JSON.stringify(req.body, null, 2));
+    
     // Acknowledge immediately to prevent Meta retries
-    res.status(200).json({ success: true });
+    res.sendStatus(200);
 
     const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
     const signature = req.headers['x-hub-signature-256'];
@@ -164,6 +166,7 @@ class WebhookController {
     }
 
     if (!body || body.object !== 'whatsapp_business_account') {
+      console.log("NON-STANDARD PAYLOAD RECEIVED:", JSON.stringify(body, null, 2));
       return;
     }
 
@@ -173,13 +176,19 @@ class WebhookController {
       for (const change of changes) {
         const value = change.value || {};
 
+        const contacts = value.contacts || [];
+
         // ---- Inbound messages ----
         const messages = value.messages || [];
         for (const message of messages) {
           try {
+            const profileName = contacts.find(c => c.wa_id === message.from)?.profile?.name || '';
+            console.log(`Processing message from ${message.from} (${profileName}): ${extractWaMessageText(message)}`);
+            
             await conversationService.handleInboundMessage({
               waMessageId: message.id,
               from: normalizePhone(message.from),
+              senderName: profileName,
               text: extractWaMessageText(message),
               messageType: message.type || 'text',
               mediaUrl: extractWaMediaUrl(message),
