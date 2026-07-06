@@ -43,10 +43,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: [
-    config.CLIENT_URL,
-    config.CLIENT_URL && config.CLIENT_URL.replace(/\/$/, '')
-  ].filter(Boolean),
+  origin: true, // Dynamically allow any origin (fixes Vercel preview URLs)
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
