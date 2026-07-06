@@ -116,8 +116,7 @@ class WebhookController {
     }
 
     logger.warn(`Meta webhook verification failed: mode=${mode}, token=${token}`);
-    // Returning JSON because the user's Render server expects to see the difference when they deploy
-    return res.status(403).json({ success: false, message: 'Verification failed' });
+    return res.sendStatus(403);
   }
 
   /**
