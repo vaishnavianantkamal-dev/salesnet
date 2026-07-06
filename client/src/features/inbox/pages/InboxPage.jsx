@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Badge, TemperatureBadge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { MoreVertical, Edit2, Trash2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,16 +79,16 @@ function getInitials(name) {
     : parts[0][0].toUpperCase()
 }
 
-function ConversationItem({ conv, isActive, onClick }) {
+function ConversationItem({ conv, isActive, onClick, onEdit, onDelete }) {
   const hasUnread = (conv.unreadCount || 0) > 0
 
   return (
-    <button
-      onClick={onClick}
+    <div
       className={cn(
-        'w-full text-left px-4 py-3 flex items-start gap-3 border-b border-border/50 transition-colors hover:bg-accent/50',
+        'w-full text-left px-4 py-3 flex items-start gap-3 border-b border-border/50 transition-colors hover:bg-accent/50 group relative cursor-pointer',
         isActive && 'bg-accent'
       )}
+      onClick={onClick}
     >
       <div className="relative flex-shrink-0">
         <Avatar className="w-10 h-10">
@@ -128,7 +129,31 @@ function ConversationItem({ conv, isActive, onClick }) {
           {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
         </span>
       )}
-    </button>
+
+      {/* Edit / Delete Dropdown */}
+      <div 
+        className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => e.stopPropagation()} // Prevent triggering onClick of the conversation item
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6">
+              <MoreVertical className="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEdit(conv)}>
+              <Edit2 className="w-3.5 h-3.5 mr-2" />
+              Edit Contact
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDelete(conv)} className="text-red-500 hover:text-red-600 focus:text-red-600">
+              <Trash2 className="w-3.5 h-3.5 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   )
 }
 
@@ -214,6 +239,35 @@ export default function InboxPage() {
   const [localMessages, setLocalMessages] = useState([])
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const { toast } = useToast()
+
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (leadId) => {
+      const { deleteLeadApi } = await import('@/api/leads.api')
+      return deleteLeadApi(leadId)
+    },
+    onSuccess: () => {
+      toast({ title: 'Contact deleted successfully' })
+      setSelectedConv(null)
+      queryClient.invalidateQueries(['inbox'])
+      queryClient.invalidateQueries(['leads'])
+    }
+  })
+
+  const handleDeleteConversation = (conv) => {
+    if (window.confirm(`Are you sure you want to delete the contact ${conv.leadName}? This will remove them completely.`)) {
+      deleteLeadMutation.mutate(conv.leadId || conv._id)
+    }
+  }
+
+  const handleEditConversation = (conv) => {
+    // Navigate to Leads page edit modal, or just show a message for now
+    toast({ 
+      title: 'To edit this contact:', 
+      description: 'Please go to the Leads page in the left menu and edit their phone number there.',
+      duration: 5000
+    })
+  }
 
   const { data: inboxData, isLoading: inboxLoading } = useQuery({
     queryKey: ['inbox', search, channelFilter],
@@ -476,6 +530,8 @@ export default function InboxPage() {
                     leadId: conv.leadId || conv._id,
                   })
                 }
+                onEdit={handleEditConversation}
+                onDelete={handleDeleteConversation}
               />
             ))
           )}
