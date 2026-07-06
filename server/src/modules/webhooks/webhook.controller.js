@@ -129,6 +129,19 @@ class WebhookController {
   async metaEvent(req, res) {
     console.log("WEBHOOK HIT:", JSON.stringify(req.body, null, 2));
     
+    // TEMPORARY DEBUG: Save raw payload to DB immediately so we can inspect it even if signature fails
+    try {
+      await WebhookLog.create({
+        source: LEAD_SOURCES.FACEBOOK || 'meta',
+        rawPayload: { 
+          headers: req.headers, 
+          body: req.body 
+        },
+        status: 'received',
+        error: 'Debugging payload' // just a flag for us to find it easily
+      });
+    } catch (e) { console.error('Failed to log to DB', e); }
+
     // Acknowledge immediately to prevent Meta retries
     res.sendStatus(200);
 
@@ -139,12 +152,10 @@ class WebhookController {
     const integration = await Integration.findOne({ name: 'meta_whatsapp' }).lean();
     const appSecret = integration?.config?.appSecret || config.META_APP_SECRET;
 
-    // TEMPORARY DEBUG: Bypass signature verification to see if META_APP_SECRET is wrong
-    // if (!verifyMetaSignature(rawBody, signature, appSecret)) {
-    //   logger.warn('Meta webhook: invalid signature, ignoring payload');
-    //   return;
-    // }
-    console.log("SIGNATURE CHECK BYPASSED FOR DEBUGGING");
+    if (!verifyMetaSignature(rawBody, signature, appSecret)) {
+      logger.warn('Meta webhook: invalid signature, ignoring payload');
+      return;
+    }
 
     const body = req.body;
     if (body && body.object === 'page') {
