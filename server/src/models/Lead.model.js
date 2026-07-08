@@ -96,6 +96,10 @@ const leadSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    allFields: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     source_metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

@@ -98,7 +98,7 @@ class WebhookController {
     const integration = await Integration.findOne({ name: 'meta_whatsapp' }).lean();
     
     // Add debugging as requested
-    const envToken = process.env.WHATSAPP_VERIFY_TOKEN;
+    const envToken = process.env.META_VERIFY_TOKEN;
     console.log(`[DEBUG metaVerify] received_mode: "${mode}"`);
     console.log(`[DEBUG metaVerify] received_token: "${token}"`);
     console.log(`[DEBUG metaVerify] expected_env_token: "${envToken}"`);
@@ -127,8 +127,7 @@ class WebhookController {
    * so that req.rawBody is available for HMAC verification.
    */
   async metaEvent(req, res) {
-    console.log("=== WHATSAPP WEBHOOK HIT ===");
-    console.log(JSON.stringify(req.body, null, 2));
+    console.log("=== WA WEBHOOK HIT ===", JSON.stringify(req.body, null, 2));
     
     // Acknowledge immediately to prevent Meta retries
     res.sendStatus(200);

@@ -20,6 +20,7 @@ const LEAD_SOURCES = {
   REFERRAL: 'referral',
   WEBSITE: 'website',
   OTHER: 'other',
+  META_LEAD_ADS: 'meta_lead_ads',
 };
 
 const LEAD_STAGES = {
